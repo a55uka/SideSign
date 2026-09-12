@@ -335,7 +335,7 @@ internal extension DeveloperPortal {
 /// fixed document shape, it simply searches the payload (JSON, or the
 /// `boot_args` blob of an HTML response) for the well-known keys. Matching that
 /// behaviour here keeps the parser resilient to harmless layout changes.
-internal enum SecurityKeyChallengeParser {
+public enum SecurityKeyChallengeParser {
 
     /// Extracts the challenge from a decoded response payload.
     ///
@@ -416,9 +416,13 @@ internal enum SecurityKeyChallengeParser {
     /// Decodes the base64 flavours Apple uses interchangeably in these payloads:
     /// standard and URL-safe alphabets, with or without padding.
     ///
-    /// Returns `nil` for empty or malformed input — an empty key handle is
-    /// never meaningful.
-    static func decodeFlexibleBase64(_ string: String) -> Data? {
+    /// Callers performing the assertion themselves need this to turn
+    /// `SecurityKeyChallenge.challenge` into the raw bytes the authenticator
+    /// signs over (e.g. for `createCredentialAssertionRequest(challenge:)`).
+    ///
+    /// Returns `nil` for empty or malformed input — an empty challenge or key
+    /// handle is never meaningful.
+    public static func decodeFlexibleBase64(_ string: String) -> Data? {
         let sanitized = string
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .replacingOccurrences(of: "-", with: "+")
