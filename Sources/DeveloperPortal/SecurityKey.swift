@@ -167,8 +167,13 @@ struct SecurityKeyVerifyBody: Encodable {
     let credentialID: String
     /// The relying party id, e.g. `"apple.com"`.
     let rpId: String
+}
 
+extension SecurityKeyVerifyBody {
     /// Builds the verification body from an assertion result.
+    ///
+    /// Declared in an extension so the struct keeps its implicit memberwise
+    /// initializer (this init delegates to it).
     ///
     /// Encoding notes: WebAuthn binary fields that Apple matches against
     /// identifiers use base64url without padding (`userHandle`, `credentialID`);
