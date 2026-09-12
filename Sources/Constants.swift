@@ -16,6 +16,11 @@ public enum Constants {
         public static let headerVersion  = "1.0.1"
         public static let authApp        = "com.apple.gs.xcode.auth"
         public static let userAgent      = "AuthKit/1 (Macintosh; OS X 26.6) (com.apple.dt.Xcode/26.0)"
+
+        /// The WebAuthn relying party identifier Apple's security-key ceremony
+        /// asserts against. Used when GrandSlam's `fsaChallenge` omits its
+        /// explicit `rpId` field.
+        public static let defaultSecurityKeyReliantPartyID = "apple.com"
     }
 
     // https://idmsa.apple.com/appleauth/auth/devices
@@ -47,6 +52,11 @@ public enum Constants {
         public static let certificatesDeveloperPortal    = URL(string: "certificates", relativeTo: developerPortalV1Base)!
         public static let grandSlamAuth             = URL(string: "https://gsa.apple.com/grandslam/GsService2")!
         public static let grandSlamValidate         = URL(string: "https://gsa.apple.com/grandslam/GsService2/validate")!
+        // GrandSlam secondary-auth surface: a GET with second-factor session
+        // headers returns the fsaChallenge for hardware security key accounts.
+        public static let grandSlamAuthChallenge    = URL(string: "https://gsa.apple.com/auth")!
+        // Submits the signed WebAuthn assertion for security key accounts.
+        public static let securityKeyVerify         = URL(string: "https://gsa.apple.com/auth/verify/security/key")!
         public static let trustedDevice             = URL(string: "https://gsa.apple.com/auth/verify/trusteddevice")!
         public static let phoneBase                 = "https://gsa.apple.com/auth/verify/phone"
         public static func phonePutURL(mode: String = "sms") -> URL {

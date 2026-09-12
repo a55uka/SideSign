@@ -100,7 +100,8 @@ public protocol DeveloperPortalAPI: Sendable {
                       xcodeVersion: String, 
                       machinePassword: String?, 
                       accountRepairHandler: DeveloperPortal.AccountRepairHandler,
-                      verificationHandler: DeveloperPortal.VerificationHandler?) async throws -> AuthSession
+                      verificationHandler: DeveloperPortal.VerificationHandler?,
+                      securityKeyHandler: DeveloperPortal.SecurityKeyHandler?) async throws -> AuthSession
 
     func fetchAccount(session: Session) async throws -> Account
     func fetchTeams(for account: Account, session: Session) async throws -> [Team]
@@ -149,7 +150,8 @@ public extension DeveloperPortalAPI {
             anisetteData: anisetteData, xcodeVersion: xcodeVersion, 
             machinePassword: nil, 
             accountRepairHandler: DeveloperPortal.defaultAccountRepairHandler, 
-            verificationHandler: verificationHandler
+            verificationHandler: verificationHandler,
+            securityKeyHandler: nil
         )
     }
 
@@ -164,7 +166,8 @@ public extension DeveloperPortalAPI {
             anisetteData: anisetteData, xcodeVersion: xcodeVersion, 
             machinePassword: machinePassword, 
             accountRepairHandler: DeveloperPortal.defaultAccountRepairHandler, 
-            verificationHandler: nil
+            verificationHandler: nil,
+            securityKeyHandler: nil
         )
     }
 
@@ -181,7 +184,8 @@ public extension DeveloperPortalAPI {
             anisetteData: anisetteData, xcodeVersion: xcodeVersion, 
             machinePassword: machinePassword, 
             accountRepairHandler: accountRepairHandler, 
-            verificationHandler: verificationHandler
+            verificationHandler: verificationHandler,
+            securityKeyHandler: nil
         )
     }
 

@@ -36,6 +36,9 @@ public enum DeveloperPortalError: Error, LocalizedError, Sendable {
     case tooManyAttempts(cause: String)
     case accountRepairRequired(url: URL?, message: String)
     case invalid2FAResponse(cause: String? = nil)
+    case requiresSecurityKeyAuthentication
+    case securityKeyChallengeUnavailable(cause: String? = nil)
+    case securityKeyVerificationFailed(cause: String? = nil)
 
     public var errorDescription: String? {
         switch self {
@@ -66,6 +69,9 @@ public enum DeveloperPortalError: Error, LocalizedError, Sendable {
         case .tooManyCertificates(let cause):                   return "Maximum number of certificates reached: \(cause)"
         case .accountRepairRequired(_, let message):            return message.isEmpty ? Constants.defaultAccountRepairMessage : message
         case .invalid2FAResponse(let cause):                    return cause ?? "Invalid two-factor authentication response."
+        case .requiresSecurityKeyAuthentication:                return "This Apple ID requires signing in with a hardware security key, but no security key handler was provided."
+        case .securityKeyChallengeUnavailable(let cause):       return cause ?? "Apple reported a security key requirement but did not provide a challenge for it."
+        case .securityKeyVerificationFailed(let cause):         return cause ?? "Apple rejected the security key assertion."
         }
     }
 }

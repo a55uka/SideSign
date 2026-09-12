@@ -316,6 +316,39 @@ public extension DeveloperPortalAPI {
         }
     }
 
+    /// Completion-handler twin of the async `authenticate`, with support for
+    /// hardware security key sign-in. `securityKeyHandler` is invoked when
+    /// Apple demands a FIDO2 assertion for the account; pass `nil` to make
+    /// security-key protected accounts fail with
+    /// `DeveloperPortalError.requiresSecurityKeyAuthentication`.
+    func authenticate(
+        appleID: String,
+        password: String,
+        anisetteData: AnisetteData,
+        xcodeVersion: String,
+        verificationHandler: DeveloperPortal.VerificationHandler?,
+        securityKeyHandler: DeveloperPortal.SecurityKeyHandler?,
+        completionHandler: @escaping @Sendable (Account?, Session?, Error?) -> Void
+    ) {
+        Task {
+            do {
+                let authSession = try await self.authenticate(
+                    appleID: appleID,
+                    password: password,
+                    anisetteData: anisetteData,
+                    xcodeVersion: xcodeVersion,
+                    machinePassword: nil,
+                    accountRepairHandler: DeveloperPortal.defaultAccountRepairHandler,
+                    verificationHandler: verificationHandler,
+                    securityKeyHandler: securityKeyHandler
+                )
+                completionHandler(authSession.account, authSession.session, nil)
+            } catch {
+                completionHandler(nil, nil, error)
+            }
+        }
+    }
+
     func deleteAppID(_ appID: AppID, for team: Team, session: Session, completionHandler: @escaping @Sendable (Bool, Error?) -> Void) {
         Task {
             do {

@@ -17,7 +17,8 @@ public extension DeveloperPortal {
                       xcodeVersion: String,
                       machinePassword: String? = nil,
                       accountRepairHandler: DeveloperPortal.AccountRepairHandler = DeveloperPortal.defaultAccountRepairHandler,
-                      verificationHandler: DeveloperPortal.VerificationHandler? = nil) async throws -> AuthSession
+                      verificationHandler: DeveloperPortal.VerificationHandler? = nil,
+                      securityKeyHandler: DeveloperPortal.SecurityKeyHandler? = nil) async throws -> AuthSession
     {
         let sanitizedAppleID = unsanitizedAppleID.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         debugLog("[SideSign] Starting authenticate...")
@@ -211,13 +212,14 @@ public extension DeveloperPortal {
                 )
                 // recur coz we just solved 2FA above and this invocation shouldn't come to this case
                 return try await authenticate(
-                    appleID: unsanitizedAppleID, 
-                    password: password, 
-                    anisetteData: anisetteData, 
-                    xcodeVersion: xcodeVersion, 
-                    machinePassword: machinePassword, 
-                    accountRepairHandler: accountRepairHandler, 
-                    verificationHandler: verificationHandler
+                    appleID: unsanitizedAppleID,
+                    password: password,
+                    anisetteData: anisetteData,
+                    xcodeVersion: xcodeVersion,
+                    machinePassword: machinePassword,
+                    accountRepairHandler: accountRepairHandler,
+                    verificationHandler: verificationHandler,
+                    securityKeyHandler: securityKeyHandler
                 )
 
             case "repair":
@@ -246,7 +248,44 @@ public extension DeveloperPortal {
 
                 debugLog("[SideSign] Account repair acknowledged by caller. Continuing to fetch app tokens...")
 
-            default:
+            case "sa", "hsa", "hsa2", "non-sa":
+                // Recognised "no second factor pending" statuses — the SRP proof
+                // was accepted on its own; nothing to do before the app-token
+                // exchange below.
+                break
+
+            case let unrecognizedAuthType?:
+                // GrandSlam demanded a second-factor step that has no dedicated
+                // flow above. Apple IDs protected by a hardware security key
+                // report their own `au` value here, so probe the secondary-auth
+                // surface for a WebAuthn challenge; its presence identifies the
+                // account as security-key protected (see SecurityKey.swift for
+                // the full ceremony). Transport errors during the probe fall
+                // through to the app-token exchange, which will surface
+                // whatever underlying problem GrandSlam is actually reporting.
+                let challenge = try? await fetchSecurityKeyChallenge(context: twoFactorAuthContext)
+                if let challenge {
+                    try await performSecurityKeyVerification(
+                        challenge,
+                        context: twoFactorAuthContext,
+                        securityKeyHandler: securityKeyHandler
+                    )
+                    // The GrandSlam session is now verified; re-run the SRP
+                    // login so it completes and yields app tokens.
+                    return try await authenticate(
+                        appleID: unsanitizedAppleID,
+                        password: password,
+                        anisetteData: anisetteData,
+                        xcodeVersion: xcodeVersion,
+                        machinePassword: machinePassword,
+                        accountRepairHandler: accountRepairHandler,
+                        verificationHandler: verificationHandler,
+                        securityKeyHandler: securityKeyHandler
+                    )
+                }
+                debugLog("[SideSign] Auth type '\(unrecognizedAuthType)' did not yield a security key challenge; continuing with app-token exchange.")
+
+            case nil:
                 break
         }
 
@@ -511,7 +550,7 @@ public extension DeveloperPortal {
         return (phoneID, mode)
     }
 
-    private func throwIfXMLUIErrorAlert(in data: Data, statusCode: Int, actionName: String) throws {
+    func throwIfXMLUIErrorAlert(in data: Data, statusCode: Int, actionName: String) throws {
         let (xmluiTitle, xmluiMessage) = parseXMLUIAlertMessage(from: data)
         if xmluiTitle != nil || xmluiMessage != nil {
             let alertMsg = [xmluiTitle, xmluiMessage]
@@ -543,7 +582,11 @@ public extension DeveloperPortal {
         return nil
     }
 
-    private struct TwoFactorAuthContext {
+    /// Session material shared by every GrandSlam second-factor flow (phone/
+    /// trusted-device 2FA and hardware security keys alike): the SRP step has
+    /// already succeeded at this point, and these fields authenticate the
+    /// follow-up requests against `gsa.apple.com/auth`.
+    struct TwoFactorAuthContext {
         let dsid: String
         let idmsToken: String
         let anisetteData: AnisetteData
@@ -882,7 +925,12 @@ public extension DeveloperPortal {
         return .success
     }
 
-    private func makeTwoFactorAuthRequest(url: URL, context: TwoFactorAuthContext) -> URLRequest {
+    /// Builds a request carrying the full GrandSlam second-factor header set:
+    /// anisette data plus `X-Apple-Identity-Token` (`base64("<dsid>:<idmsToken>")`)
+    /// identifying the partially-authenticated session. Shared by the phone/
+    /// trusted-device 2FA endpoints and the security-key challenge/verify
+    /// endpoints, which all live under `gsa.apple.com/auth`.
+    func makeTwoFactorAuthRequest(url: URL, context: TwoFactorAuthContext) -> URLRequest {
         let identityToken = "\(context.dsid):\(context.idmsToken)"
         let encodedIdentityToken = Data(identityToken.utf8).base64EncodedString()
 
@@ -913,7 +961,7 @@ public extension DeveloperPortal {
         return request
     }
 
-    private func parsePlistOrJSON(_ data: Data) -> [String: any Sendable]? {
+    func parsePlistOrJSON(_ data: Data) -> [String: any Sendable]? {
            (try? PropertyListSerialization.propertyList(from: data, format: nil)) as? [String: any Sendable]
         ?? (try? JSONSerialization.jsonObject(with: data, options: [])) as? [String: any Sendable]
     }
